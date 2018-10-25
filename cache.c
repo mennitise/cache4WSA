@@ -1,5 +1,13 @@
 #include "cache.h"
 
+
+const int CACHE_SIZE = 4 * 1024; // 4KB
+const int BLOCK_SIZE = 64; // 64B
+
+const int BITS_TAG = 6;
+const int BITS_INDEX = 4;
+const int BITS_OFFSET = 6;
+
 void init(){
 
 }
