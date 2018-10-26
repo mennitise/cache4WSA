@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "cache.h"
 
@@ -19,7 +20,37 @@ typedef struct cache{
 	
 }cache_t;
 
-/*
+/* -----------------BLOCK DEFINITION------------------- */
+
+typedef struct block{
+	time_t lasUpdate;
+	int valid;
+	int dirty;
+	char* data;
+
+}block_t;
+
+block_t* init_block(){
+	block_t* block = malloc(sizeof(block_t));
+	if (!block){
+		printf("ERROR: Can't Initialize blocks in cache\n");
+		abort();
+	}
+	block->data = malloc(BLOCK_SIZE * sizeof(char*));
+	block->lasUpdate = 0;
+	block->valid = 0;
+	block->dirty = 0;
+	return block;
+}
+
+void destroy_block(block_t* block){
+	free(block);
+}
+
+/* ---------------------------------------------------- */
+
+/* ----------------- SET DEFINITION ------------------- */
+
 struct cache_set{
 	
 };
@@ -27,7 +58,8 @@ struct cache_set{
 cache_set* create_cache_set(){
 
 }
-*/
+
+/* ---------------------------------------------------- */
 
 void init(){
 	printf("Initialize Cache...\n");
