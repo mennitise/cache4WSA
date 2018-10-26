@@ -1,5 +1,7 @@
-#include "cache.h"
+#include <stdio.h>
+#include <stdlib.h>
 
+#include "cache.h"
 
 const int CACHE_SIZE = 4 * 1024; // 4KB
 const int BLOCK_SIZE = 64; // 64B
@@ -8,8 +10,39 @@ const int BITS_TAG = 6;
 const int BITS_INDEX = 4;
 const int BITS_OFFSET = 6;
 
-void init(){
+typedef struct cache{
+	
+	int size;
+	int* data;
+	
+}cache_t;
 
+/*
+struct cache_set{
+	
+};
+
+cache_set* create_cache_set(){
+
+}
+*/
+
+void init(){
+	printf("Initialize Cache...\n");
+	
+	CACHE = malloc(sizeof(cache_t));
+	if (!CACHE){
+		printf("ERROR: Can't Initialize Cache\n");
+		abort();
+	}
+
+	CACHE->size = 64 * 1024;
+
+	CACHE->data = malloc(sizeof(int));
+	if (!CACHE->data){
+		printf("ERROR: Can't Initialize Cache Data\n");
+		abort();
+	}
 }
 
 int find_set(int address){
@@ -42,4 +75,10 @@ int write_byte(int address, char value){
 
 int get_miss_rate(){
 	return 0;
+}
+
+void destroy(){
+	if (CACHE) free(CACHE->data);
+	free(CACHE);
+	puts("Cache destroyed!");
 }
