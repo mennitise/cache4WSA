@@ -14,31 +14,64 @@ const int MAX_LENGHT_LINES = 256;
 
 cache_t* CACHE;
 
+void read(int register_1){
+	printf("reading %d\n", register_1);
+}
 
+void write(int register_1, int register_2){
+	printf("writing %d in %d\n", register_2, register_1);
+}
+
+void miss_rate(){
+	printf("Calculating miss rate...\n");
+	printf("MISS RATE: %d\n", get_miss_rate());
+}
 
 void process(char* line){
 	char *token = strtok(line, " ");
 	int operation = NONE;
-    while(token) {
-        //puts(token);
+	int register_1, register_2;
+    if(token) {
 		if (strcmp(token, "MR\n") == 0){
 			operation = MISS_RATE;
-			printf("Miss Rate\n");
 		} else if (strcmp(token, "R") == 0){
 			operation = READ;
-			printf("Read\n");
+			token = strtok(NULL, " ");
+			if (!token){
+				printf("ERROR IN COMMAND WRITE: Inconsitence reading the file\n");
+				abort();
+			}
+			register_1 = atoi(token);
 		} else if (strcmp(token, "W") == 0){
 			operation = WRITE;
-			printf("Write\n");
+			token = strtok(NULL, ",");
+			if (!token){
+				printf("ERROR IN COMMAND READ: Inconsitence reading the file\n");
+				abort();
+			}
+			register_1 = atoi(token);
+        	token = strtok(NULL, " ");
+        	if (!token){
+				printf("ERROR IN COMMAND READ: Inconsitence reading the file\n");
+				abort();
+			}
+			register_2 = atoi(token);
 		} else {
-
-			printf("No reconoce: %s\n", token);
+			printf("ERROR READING THE NEXT LINE\n%s\nINCOSITENCE IN THE FILE\n", token);
 		}
-        token = strtok(NULL, " ");
     }
 
-/*
-*/
+    switch(operation){
+    	case READ:
+    		read(register_1);
+    		break;
+    	case WRITE:
+    		write(register_1, register_2);
+    		break;
+    	case MISS_RATE:
+    		miss_rate();
+    		break;
+    }
 }
 
 void read_file(char* filename) {

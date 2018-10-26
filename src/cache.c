@@ -14,6 +14,8 @@ typedef struct cache{
 	
 	int size;
 	int* data;
+	size_t misses;
+	size_t hits;
 	
 }cache_t;
 
@@ -37,6 +39,8 @@ void init(){
 	}
 
 	CACHE->size = 64 * 1024;
+	CACHE->hits = 0;
+	CACHE->misses = 0;
 
 	CACHE->data = malloc(sizeof(int));
 	if (!CACHE->data){
@@ -74,7 +78,8 @@ int write_byte(int address, char value){
 }
 
 int get_miss_rate(){
-	return 0;
+	if ((CACHE->misses + CACHE->hits) == 0) return 0;
+	return CACHE->misses / ( CACHE->misses + CACHE->hits );
 }
 
 void destroy(){
