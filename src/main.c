@@ -15,11 +15,17 @@ const int MAX_LENGHT_LINES = 256;
 cache_t* CACHE;
 
 void read(int register_1){
+	char* bin = int_to_binary(register_1);
 	printf("reading %d\n", register_1);
+	printf("bin -> %s\n", bin);
+	free(bin);
 }
 
 void write(int register_1, int register_2){
+	char* bin = int_to_binary(register_1);
 	printf("writing %d in %d\n", register_2, register_1);
+	printf("bin -> %s\n", bin);
+	free(bin);
 }
 
 void miss_rate(){

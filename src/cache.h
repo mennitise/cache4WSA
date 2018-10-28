@@ -5,6 +5,12 @@ typedef struct cache cache_t;
 
 extern cache_t* CACHE;
 
+/* Utilities */
+
+char* int_to_binary(int n);
+
+/* --------- */
+
 /* 	The init() function initialize the blocks of the cache
 	as invalid and the rate of misses to 0. */
 void init();
