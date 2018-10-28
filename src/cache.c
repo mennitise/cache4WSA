@@ -9,17 +9,36 @@
 #define BLOCK_SIZE 		64 // 64B
 #define BLOCKS 			( 4 * 1024 ) / 64
 
-#define BITS_TAG 		6
-#define BITS_INDEX 		4
-#define BITS_OFFSET 	6
-#define BITS_ADDRESS 	16
+#define BITS_TAG 			6
+#define BITS_TAG_INIT		0
+#define BITS_TAG_END		5
+
+#define BITS_INDEX			4
+#define BITS_INDEX_INIT		6
+#define BITS_INDEX_END		9
+
+#define BITS_OFFSET 		6
+#define BITS_OFFSET_INIT	10
+#define BITS_OFFSET_END		15
+
+#define BITS_ADDRESS 		16
+
+/*
+	 __________________
+	| tag  |idx |offset|
+	|______|____|______|
+	|      |    |      |
+	|------|----|------|
+	|______|____|______|
+
+*/
 
 char* int_to_binary(int n){
 	int c, d, count;
 	char *pointer;
 
 	count = 0;
-	pointer = (char*)malloc(32+1);
+	pointer = (char*)malloc(BITS_ADDRESS);
 	if (!pointer){
 		printf("ERROR: Can't Initialize blocks from cache\n");
 		abort();
@@ -38,6 +57,39 @@ char* int_to_binary(int n){
 	*(pointer+count) = '\0';
 
 	return  pointer;
+}
+
+char* get_tag(char* address){
+	char* tag = (char*)malloc(BITS_TAG);
+	if (!tag) return NULL;
+	int count = 0;
+	for (int i = BITS_TAG_INIT; i <= BITS_TAG_END; ++i){
+		*(tag + count) = address[i];
+		count++;
+	}
+	return tag;
+}
+
+char* get_index(char* address){
+	char* index = (char*)malloc(BITS_INDEX);
+	if (!index) return NULL;
+	int count = 0;
+	for (int i = BITS_INDEX_INIT; i <= BITS_INDEX_END; ++i){
+		*(index + count) = address[i];
+		count++;
+	}
+	return index;
+}
+
+char* get_offset(char* address){
+	char* offset = (char*)malloc(BITS_OFFSET);
+	if (!offset) return NULL;
+	int count = 0;
+	for (int i = BITS_OFFSET_INIT; i <= BITS_OFFSET_END; ++i){
+		*(offset + count) = address[i];
+		count++;
+	}
+	return offset;
 }
 
 /* -----------------BLOCK DEFINITION------------------- */
@@ -156,6 +208,24 @@ void destroy(){
 /* ---------------------------------------------------- */
 
 int find_set(int address){
+	char* bin = int_to_binary(address);
+
+	char* tag = get_tag(bin_address);
+	char* index = get_index(bin_address);
+	char* offset = get_offset(bin_address);
+
+	if (!tag || !index || !offset){
+		printf("ERROR: Don't have space for initialize variables\n");
+		abort();
+	}
+
+	printf("Address:%s\n Tag:%s Index:%s Offset:%s\n", bin_address, tag, index, offset);
+
+	free(tag);
+	free(index);
+	free(offset);
+
+	free(bin);
 	return 0;
 }
 
@@ -208,10 +278,46 @@ void write_block(int way, int setnum){
 }
 
 int read_byte(int address){
+	char* bin_address = int_to_binary(address);
+
+	char* tag = get_tag(bin_address);
+	char* index = get_index(bin_address);
+	char* offset = get_offset(bin_address);
+
+	if (!tag || !index || !offset){
+		printf("ERROR: Don't have space for initialize variables\n");
+		abort();
+	}
+
+	printf("Address:%s\n Tag:%s Index:%s Offset:%s\n", bin_address, tag, index, offset);
+
+	free(tag);
+	free(index);
+	free(offset);
+
+	free(bin_address);
 	return 0;
 }
 
 int write_byte(int address, char value){
+	char* bin = int_to_binary(address);
+
+	char* tag = get_tag(bin_address);
+	char* index = get_index(bin_address);
+	char* offset = get_offset(bin_address);
+
+	if (!tag || !index || !offset){
+		printf("ERROR: Don't have space for initialize variables\n");
+		abort();
+	}
+
+	printf("Address:%s\n Tag:%s Index:%s Offset:%s\n", bin_address, tag, index, offset);
+
+	free(tag);
+	free(index);
+	free(offset);
+
+	free(bin);
 	return 0;
 }
 
