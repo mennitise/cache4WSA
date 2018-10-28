@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 #include "cache.h"
 
@@ -33,18 +34,20 @@
 
 */
 
+/* -------------------- UTILITIES --------------------- */
+
 char* int_to_binary(int n){
 	int c, d, count;
 	char *pointer;
 
 	count = 0;
-	pointer = (char*)malloc(BITS_ADDRESS);
+	pointer = (char*)malloc(BITS_ADDRESS + 1);
 	if (!pointer){
 		printf("ERROR: Can't Initialize blocks from cache\n");
 		abort();
 	}
 
-	for (c = BITS_ADDRESS-1 ; c >= 0 ; c--){
+	for (c = BITS_ADDRESS - 1; c >= 0; c--){
 		d = n >> c;
 
 		if (d & 1)
@@ -59,8 +62,20 @@ char* int_to_binary(int n){
 	return  pointer;
 }
 
+int binary_to_int(char* bin, size_t bits){
+	int result = 0;
+	int count = bits - 1;
+	for (int i = 0; i < bits; ++i){
+		if (bin[i] == '1'){
+			result += pow(2, count);
+		}
+		count--;
+	}
+	return result;
+}
+
 char* get_tag(char* address){
-	char* tag = (char*)malloc(BITS_TAG);
+	char* tag = (char*)malloc(BITS_TAG + 1);
 	if (!tag) return NULL;
 	int count = 0;
 	for (int i = BITS_TAG_INIT; i <= BITS_TAG_END; ++i){
@@ -71,7 +86,7 @@ char* get_tag(char* address){
 }
 
 char* get_index(char* address){
-	char* index = (char*)malloc(BITS_INDEX);
+	char* index = (char*)malloc(BITS_INDEX + 1);
 	if (!index) return NULL;
 	int count = 0;
 	for (int i = BITS_INDEX_INIT; i <= BITS_INDEX_END; ++i){
@@ -82,7 +97,7 @@ char* get_index(char* address){
 }
 
 char* get_offset(char* address){
-	char* offset = (char*)malloc(BITS_OFFSET);
+	char* offset = (char*)malloc(BITS_OFFSET + 1);
 	if (!offset) return NULL;
 	int count = 0;
 	for (int i = BITS_OFFSET_INIT; i <= BITS_OFFSET_END; ++i){
@@ -208,7 +223,7 @@ void destroy(){
 /* ---------------------------------------------------- */
 
 int find_set(int address){
-	char* bin = int_to_binary(address);
+	char* bin_address = int_to_binary(address);
 
 	char* tag = get_tag(bin_address);
 	char* index = get_index(bin_address);
@@ -219,13 +234,13 @@ int find_set(int address){
 		abort();
 	}
 
-	printf("Address:%s\n Tag:%s Index:%s Offset:%s\n", bin_address, tag, index, offset);
+	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
 
 	free(tag);
 	free(index);
 	free(offset);
 
-	free(bin);
+	free(bin_address);
 	return 0;
 }
 
@@ -289,7 +304,7 @@ int read_byte(int address){
 		abort();
 	}
 
-	printf("Address:%s\n Tag:%s Index:%s Offset:%s\n", bin_address, tag, index, offset);
+	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
 
 	free(tag);
 	free(index);
@@ -300,7 +315,7 @@ int read_byte(int address){
 }
 
 int write_byte(int address, char value){
-	char* bin = int_to_binary(address);
+	char* bin_address = int_to_binary(address);
 
 	char* tag = get_tag(bin_address);
 	char* index = get_index(bin_address);
@@ -311,13 +326,13 @@ int write_byte(int address, char value){
 		abort();
 	}
 
-	printf("Address:%s\n Tag:%s Index:%s Offset:%s\n", bin_address, tag, index, offset);
+	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
 
 	free(tag);
 	free(index);
 	free(offset);
 
-	free(bin);
+	free(bin_address);
 	return 0;
 }
 
