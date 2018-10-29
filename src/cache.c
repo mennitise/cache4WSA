@@ -305,10 +305,11 @@ char read_byte(int address){
 		abort();
 	}
 
-	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+	printf("	Address:%s\n 	Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
 	
 	char value;
 
+	// BUSCA EL VALOR EN CACHE PARA RETORNARLO
 	for (int i = 0; i < CACHE->amount_ways; ++i){
 		if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
 			 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
@@ -316,12 +317,25 @@ char read_byte(int address){
 			printf("ENCUENTRA EN CACHE\n");
 			value = *(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
 			CACHE->hits++;
-			continue;
+			break;
 		}
 	}
 
+	// SI NO LO ENCUENTRA TRAE DE MEMORIA AL CACHE
 	if (!value){
-		printf("NO ENCUENTRA. DEBE BUSCAR EN MEMORIA\n");
+		CACHE->misses++;
+
+		// LEER DE MEMORIA EL BLOQUE
+
+		for (int i = 0; i < CACHE->amount_ways; ++i){
+			if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
+				 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
+			){
+				printf("LUEGO DE TRAER DE MEMORIA. ENCUENTRA EN CACHE\n");
+				value = *(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
+				break;
+			}
+		}
 	}
 
 	free(tag);
@@ -339,13 +353,56 @@ int write_byte(int address, char value){
 	char* index = get_index(bin_address);
 	char* offset = get_offset(bin_address);
 
+	int copied = 0;
+
 	if (!tag || !index || !offset){
 		printf("ERROR: Don't have space for initialize variables\n");
 		abort();
 	}
 
-	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
-	// write_block();
+	printf("	Address:%s\n 	Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+
+	// BUSCAR SI SE ENCUENTRA PARA REEMPLAZAR CON EL NUEVO VALOR Y PONER DIRTY EN 1
+	for (int i = 0; i < CACHE->amount_ways; ++i){
+		if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
+			 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
+		){
+			printf("ENCUENTRA EN CACHE, Y COPIA EL NUEVO VALOR\n");
+			*(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET)) = value;
+			CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 1;
+			CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
+			CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
+			CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
+			copied = 1;
+			value = *(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
+			CACHE->hits++;
+			break;
+		}
+	}
+
+	// SI NO SE ENCUENTRA, LO TRAE DE MEMORIA, GUARDA EL VALOR Y PONE DIRTY EN 1
+	if (copied != 1) {
+		CACHE->misses++;
+		
+		// LEER DE MEMORIA EL BLOQUE
+		
+		for (int i = 0; i < CACHE->amount_ways; ++i){
+			if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
+				 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
+			){
+				printf("LUEGO DE TRAER DE MEMORIA. ENCUENTRA EN CACHE, Y COPIA EL NUEVO VALOR\n");
+				*(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET)) = value;
+				CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 1;
+				CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
+				CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
+				CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
+				copied = 1;
+				value = *(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
+				CACHE->hits++;
+				break;
+			}
+		}
+	}
 
 	free(tag);
 	free(index);
