@@ -35,7 +35,7 @@ void write_block(int way, int setnum);
 
 /* 	The read_byte(address) function returns the
  	value corresponding to the address position. */
-int read_byte(int address);
+char read_byte(int address);
 
 /* 	The write_byte(int address, char value) function
  	writes the value value to the correct position of

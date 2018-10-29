@@ -113,6 +113,7 @@ typedef struct block{
 	time_t lastUpdate;
 	int valid;
 	int dirty;
+	int tag;
 	char* data;
 }block_t;
 
@@ -184,8 +185,8 @@ void destroy_cache_set(cache_set_t* cache_set){
 
 typedef struct cache{
 	int size;
-	cache_set_t* sets[WAYS];
-	size_t ways;
+	cache_set_t* ways[WAYS];
+	size_t amount_ways;
 	size_t misses;
 	size_t hits;
 	
@@ -200,20 +201,20 @@ void init(){
 		abort();
 	}
 
-	CACHE->ways = WAYS;
+	CACHE->amount_ways = WAYS;
 	CACHE->size = 64 * 1024;
 	CACHE->hits = 0;
 	CACHE->misses = 0;
 
-	for (int i = 0; i < CACHE->ways; ++i){
-		CACHE->sets[i] = init_cache_set();
+	for (int i = 0; i < CACHE->amount_ways; ++i){
+		CACHE->ways[i] = init_cache_set();
 	}
 }
 
 void destroy(){
 	if (CACHE){
-		for (int i = 0; i < CACHE->ways; ++i){
-			destroy_cache_set(CACHE->sets[i]);
+		for (int i = 0; i < CACHE->amount_ways; ++i){
+			destroy_cache_set(CACHE->ways[i]);
 		}
 	}
 	free(CACHE);
@@ -234,7 +235,7 @@ int find_set(int address){
 		abort();
 	}
 
-	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
 
 	free(tag);
 	free(index);
@@ -251,8 +252,8 @@ int find_lru(int setnum){
 	}
 
 	int way_lru_block = 0;
-	for (int i = 0; i < CACHE->ways; ++i){
-		if (CACHE->sets[i]->blocks[setnum-1]->lastUpdate > CACHE->sets[way_lru_block]->blocks[setnum-1]->lastUpdate) {
+	for (int i = 0; i < CACHE->amount_ways; ++i){
+		if (CACHE->ways[i]->blocks[setnum-1]->lastUpdate > CACHE->ways[way_lru_block]->blocks[setnum-1]->lastUpdate) {
 			way_lru_block = i;
 		}
 	}
@@ -265,23 +266,23 @@ int is_dirty(int way, int setnum){
 		return 0;
 	}
 	
-	if(CACHE->ways < way){
+	if(CACHE->amount_ways < way){
 		printf("ERROR: The Cache Set especified don't exists\n");
 		return 0;
-	}else if(!CACHE->sets[way-1]){
+	}else if(!CACHE->ways[way-1]){
 		printf("ERROR: The Cache Set especified isn't initialized\n");
 		return 0;
 	}
 
-	if(CACHE->sets[way-1]->blocks_amount < setnum){
+	if(CACHE->ways[way-1]->blocks_amount < setnum){
 		printf("ERROR: The Block especified in the Cache Set don't exists\n");
 		return 0;
-	}else if(!CACHE->sets[way-1]->blocks[setnum-1]){
+	}else if(!CACHE->ways[way-1]->blocks[setnum-1]){
 		printf("ERROR: This Block especified in the Cache Set isn't initialized\n");
 		return 0;
 	}
 
-	return CACHE->sets[way-1]->blocks[setnum-1]->dirty;
+	return CACHE->ways[way-1]->blocks[setnum-1]->dirty;
 }
 
 void read_block(int blocknum){
@@ -292,7 +293,7 @@ void write_block(int way, int setnum){
 
 }
 
-int read_byte(int address){
+char read_byte(int address){
 	char* bin_address = int_to_binary(address);
 
 	char* tag = get_tag(bin_address);
@@ -304,14 +305,31 @@ int read_byte(int address){
 		abort();
 	}
 
-	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+	
+	char value;
+
+	for (int i = 0; i < CACHE->amount_ways; ++i){
+		if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
+			 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
+		){
+			printf("ENCUENTRA EN CACHE\n");
+			value = *(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
+			CACHE->hits++;
+			continue;
+		}
+	}
+
+	if (!value){
+		printf("NO ENCUENTRA. DEBE BUSCAR EN MEMORIA\n");
+	}
 
 	free(tag);
 	free(index);
 	free(offset);
 
 	free(bin_address);
-	return 0;
+	return value;
 }
 
 int write_byte(int address, char value){
@@ -326,7 +344,8 @@ int write_byte(int address, char value){
 		abort();
 	}
 
-	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+	// write_block();
 
 	free(tag);
 	free(index);
