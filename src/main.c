@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "main_memory.h"
 #include "cache.h"
 
 #define NONE 0
@@ -12,6 +13,7 @@
 const int MAX_LENGHT = 256;
 const int MAX_LENGHT_LINES = 256;
 
+main_memory_t* MAIN_MEMORY;
 cache_t* CACHE;
 
 void read(int register_1){
@@ -96,11 +98,13 @@ void read_file(char* filename) {
 	fclose(file);
 }
 
-int main(int argc, char *argv[]) { 
+int main(int argc, char *argv[]) {
+	init_main_memory();
 	init();
 
 	read_file(argv[argc-1]);
 
+	destroy_main_memory();
 	destroy();
 	return 0;
 }
