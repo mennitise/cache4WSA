@@ -16,21 +16,6 @@ const int MAX_LENGHT_LINES = 256;
 main_memory_t* MAIN_MEMORY;
 cache_t* CACHE;
 
-void read(int register_1){
-	printf("reading %d\n", register_1);
-	read_byte(register_1);
-}
-
-void write(int register_1, int register_2){
-	printf("writing %d in %d\n", register_2, register_1);
-	write_byte(register_1, register_2);
-}
-
-void miss_rate(){
-	printf("Calculating miss rate...\n");
-	printf("MISS RATE: %d\n", get_miss_rate());
-}
-
 void process(char* line){
 	char *token = strtok(line, " ");
 	int operation = NONE;
@@ -67,13 +52,16 @@ void process(char* line){
 
     switch(operation){
     	case READ:
-    		read(register_1);
+    		printf("reading %d\n", register_1);
+			read_byte(register_1);
     		break;
     	case WRITE:
-    		write(register_1, register_2);
+    		printf("writing %d in %d\n", register_2, register_1);
+			write_byte(register_1, register_2);
     		break;
     	case MISS_RATE:
-    		miss_rate();
+    		printf("Calculating miss rate...\n");
+			printf("MISS RATE: %d\n", get_miss_rate());
     		break;
     }
 }

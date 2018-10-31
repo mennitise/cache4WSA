@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include <unistd.h>
 
 #include "main_memory.h"
 #include "cache.h"
@@ -45,7 +46,7 @@ char* int_to_binary(int n, size_t bits){
 	count = 0;
 	pointer = (char*)malloc(bits + 1);
 	if (!pointer){
-		printf("ERROR: Can't Initialize blocks from cache\n");
+		puts("ERROR: Can't Initialize blocks from cache");
 		abort();
 	}
 
@@ -113,13 +114,13 @@ block_t* init_block(){
 
 	block_t* block = malloc(sizeof(block_t));
 	if (!block){
-		printf("ERROR: Can't Initialize blocks from cache\n");
+		puts("ERROR: Can't Initialize blocks from cache");
 		abort();
 	}
 	
 	block->data = malloc(BLOCK_SIZE * sizeof(char*));
 	if (!block->data){
-		printf("ERROR: Can't Initialize data blocks from cache\n");
+		puts("ERROR: Can't Initialize data blocks from cache");
 		abort();
 	}
 	
@@ -148,7 +149,7 @@ cache_set_t* init_cache_set(){
 
 	cache_set_t* cache_set = malloc(sizeof(cache_set_t));
 	if (!cache_set){
-		printf("ERROR: Can't Initialize sets from cache\n");
+		puts("ERROR: Can't Initialize sets from cache");
 		abort();
 	}
 
@@ -185,11 +186,11 @@ typedef struct cache{
 }cache_t;
 
 void init(){
-	printf("Initialize Cache...\n");
+	puts("Initialize Cache...");
 	
 	CACHE = malloc(sizeof(cache_t));
 	if (!CACHE){
-		printf("ERROR: Can't Initialize Cache\n");
+		puts("ERROR: Can't Initialize Cache");
 		abort();
 	}
 
@@ -225,7 +226,7 @@ int find_set(int address){
 	int founded = -1;
 
 	if (!tag || !index || !offset){
-		printf("ERROR: Don't have space for initialize variables\n");
+		puts("ERROR: Don't have space for initialize variables");
 		abort();
 	}
 
@@ -248,13 +249,23 @@ int find_set(int address){
 
 int find_lru(int setnum){
 	if (!CACHE){
-		printf("ERROR: The Cache isn't initialized\n");
+		puts("ERROR: The Cache isn't initialized");
 		return 0;
 	}
 
 	int way_lru_block = 0;
+
+	time_t timeA, timeB;
+	double seconds;
+
 	for (int i = 0; i < CACHE->amount_ways; ++i){
-		if (CACHE->ways[i]->blocks[setnum]->lastUpdate > CACHE->ways[way_lru_block]->blocks[setnum]->lastUpdate) {
+		timeA = CACHE->ways[i]->blocks[setnum]->lastUpdate;
+		timeB = CACHE->ways[way_lru_block]->blocks[setnum]->lastUpdate;
+		seconds = difftime(timeA, timeB);
+		
+		// printf("%ld %ld %f\n", timeA, timeB, seconds);
+
+		if (seconds < 0) {
 			way_lru_block = i;
 		}
 	}
@@ -263,23 +274,23 @@ int find_lru(int setnum){
 
 int is_dirty(int way, int setnum){
 	if(!CACHE){
-		printf("ERROR: The Cache isn't initialized\n");
+		puts("ERROR: The Cache isn't initialized");
 		return 0;
 	}
 	
 	if(CACHE->amount_ways < way){
-		printf("ERROR: The Cache Set especified don't exists\n");
+		puts("ERROR: The Cache Set especified don't exists");
 		return 0;
 	}else if(!CACHE->ways[way-1]){
-		printf("ERROR: The Cache Set especified isn't initialized\n");
+		puts("ERROR: The Cache Set especified isn't initialized");
 		return 0;
 	}
 
 	if(CACHE->ways[way-1]->blocks_amount < setnum){
-		printf("ERROR: The Block especified in the Cache Set don't exists\n");
+		puts("ERROR: The Block especified in the Cache Set don't exists");
 		return 0;
 	}else if(!CACHE->ways[way-1]->blocks[setnum-1]){
-		printf("ERROR: This Block especified in the Cache Set isn't initialized\n");
+		puts("ERROR: This Block especified in the Cache Set isn't initialized");
 		return 0;
 	}
 
@@ -289,12 +300,15 @@ int is_dirty(int way, int setnum){
 void read_block(int blocknum){
 
     if(MAIN_MEMORY->blocks_amount < blocknum){
-		printf("ERROR: The Main Memory block especified doesn't exists\n");
+		puts("ERROR: The Main Memory block especified doesn't exists");
 		return ;
 	}else if(!MAIN_MEMORY->blocks[blocknum-1]){
-		printf("ERROR: The Main Memory data especified isn't initialized\n");
+		puts("ERROR: The Main Memory data especified isn't initialized");
 		return ;
 	}
+
+	// Simulamos tiempo de busqueda en cache
+	sleep(4);
 
     // OBTENGO EL TAG E INDEX DEL BLOCKNUM. SON 10 BITS LOS QUE IDENTIFICA A UN BLOQUE DE LA MEMORIA PRINCIPAL
 	char* bin_blocknum = int_to_binary(blocknum, BITS_TAG + BITS_INDEX);
@@ -310,7 +324,7 @@ void read_block(int blocknum){
     // VER SI HAY ALGUN BLOQUE LIBRE EN CACHE
     for (int i = 0; i < CACHE->amount_ways; ++i){
         if (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 0){
-            printf("ENCUENTRA BLOQUE LIBRE EN CACHE (read_block)\n");
+            // printf("		Read Block: Encuentra bloque libre en cache - set: %d\n",i);
             strcpy(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data, data_in_memory);
             CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 0; //Quedaria igual que en memoria principal
             CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
@@ -324,8 +338,11 @@ void read_block(int blocknum){
     // SI NO SE ENCONTRO BLOQUE LIBRE HAY QUE AGARRAR EL BLOQUE LRU
     if (memory_changed != 1) {
         int way_lru = find_lru(binary_to_int(index, BITS_INDEX));
+    	// printf("		Read Block: No encontro bloque libre en cache, LRU: %d\n",way_lru);
+
         // ME FIJO SI EL BIT DIRTY ESTA EN 1 PARA GUARDAR LO QUE TIENE EN MEMORIA
         if (CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->dirty == 1){
+    		// printf("		Read Block: Posee bit en dirty 1, baja a memoria\n");
             strcpy(MAIN_MEMORY->blocks[binary_to_int(bin_blocknum, BITS_TAG + BITS_INDEX)]->data, CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->data);
         }
         strcpy(CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->data, data_in_memory);
@@ -339,29 +356,32 @@ void read_block(int blocknum){
 void write_block(int way, int setnum){
 
     if(!CACHE){
-        printf("ERROR: The Cache isn't initialized\n");
+        puts("ERROR: The Cache isn't initialized");
         return ;
     }
 
     if(CACHE->amount_ways < way){
-        printf("ERROR: The Cache Set especified don't exists\n");
+        puts("ERROR: The Cache Set especified don't exists");
         return ;
     }else if(!CACHE->ways[way-1]){
-        printf("ERROR: The Cache Set especified isn't initialized\n");
+        puts("ERROR: The Cache Set especified isn't initialized");
         return ;
     }
 
     if(CACHE->ways[way-1]->blocks_amount < setnum){
-        printf("ERROR: The Block especified in the Cache Set don't exists\n");
+        puts("ERROR: The Block especified in the Cache Set don't exists");
         return ;
     }else if(!CACHE->ways[way-1]->blocks[setnum-1]){
-        printf("ERROR: This Block especified in the Cache Set isn't initialized\n");
+        puts("ERROR: This Block especified in the Cache Set isn't initialized");
         return ;
     }
 
+    // Simulamos tiempo de busqueda en cache
+	sleep(4);
+
     // BUSQUEDA DEL BLOQUE EN CACHE
     if (CACHE->ways[way-1]->blocks[setnum-1]->valid == 1){
-        printf("ENCUENTRA EN CACHE\n");
+        // printf("		Write block: Encuentra el bloque en cache\n");
         char* data = CACHE->ways[way-1]->blocks[setnum-1]->data;
         int tag = CACHE->ways[way-1]->blocks[setnum-1]->tag;
         char* bin_tag = int_to_binary(tag, BITS_TAG);
@@ -381,7 +401,7 @@ void write_block(int way, int setnum){
         free(bin_blocknum);
     }
     else{
-        printf("NO SE PUDO ENCONTRAR EL BLOQUE EN CACHE\n");
+        // printf("		Write Block: No se encontro el bloque en cache\n");
     }
 }
 
@@ -393,32 +413,35 @@ char read_byte(int address){
 	char* offset = get_offset(bin_address);
 
 	if (!tag || !index || !offset){
-		printf("ERROR: Don't have space for initialize variables\n");
+		puts("ERROR: Don't have space for initialize variables");
 		abort();
 	}
 
-	printf("	Address:%s\n 	Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+	// printf("	Address:%s\n 	Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
 	
 	char value;
 	int set;
 
+	// Simulamos tiempo de busqueda en cache
+	sleep(1);
+
 	// BUSCA EL VALOR EN CACHE PARA RETORNARLO
 	set = find_set(address);
 	if (set != -1){
-		printf("Read byte: Encuentra el set en cache - %d\n",set);
+		// printf("		Read byte: Encuentra el set en cache - %d\n",set);
 		CACHE->hits++;
 		value = *(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
 	} else {
-		printf("Read byte: No encuentra el set en cache\n");
+		// printf("		Read byte: No encuentra el set en cache\n");
 		CACHE->misses++;
 
 		// LEER DE MEMORIA EL BLOQUE
 		read_block(binary_to_int(bin_address, BITS_TAG + BITS_INDEX));
 		set = find_set(address);
-		if (set != 1){
+		if (set != -1){
 			value = *(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
 		} else {
-			printf("ERROR: Reading block from main memory\n");
+			puts("ERROR: Reading block from main memory");
 			abort();
 		}
 	}
@@ -438,16 +461,19 @@ int write_byte(int address, char value){
 	char* offset = get_offset(bin_address);
 
 	if (!tag || !index || !offset){
-		printf("ERROR: Don't have space for initialize variables\n");
+		puts("ERROR: Don't have space for initialize variables");
 		abort();
 	}
 
-	printf("	Address:%s\n 	Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+	// printf("	Address:%s\n 	Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+
+	// Simulamos tiempo de busqueda en cache
+	sleep(1);
 
 	// BUSCAR SI EL BLOQUE SE ENCUENTRA EN CACHE PARA ESCRIBIR EL NUEVO VALOR
 	int set = find_set(address);
 	if (set != -1){
-		printf("Write byte: Encuentra en cache el set: %d\n",set);
+		// printf("		Write byte: Encuentra en cache el set: %d\n",set);
 		CACHE->hits++;
 
 		*(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET)) = value;
@@ -457,7 +483,7 @@ int write_byte(int address, char value){
 		CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
 	} else {
 		// NO SE ENCUENTRA EL BLOQUE EN CACHE, LO TRAE DE MEMORIA
-		printf("Write byte: No encuentra en cache el set. Trae de memoria el set.\n");
+		// printf("		Write byte: No encuentra en cache el set. Trae de memoria el set.\n");
 		CACHE->misses++;
 		
 		// LEER DE MEMORIA EL BLOQUE
@@ -466,14 +492,14 @@ int write_byte(int address, char value){
 		// Una vez que lo trae lo vuelve a buscar
 		set = find_set(address);
 		if (set != -1){
-			printf("Write byte: Luego de traer de memoria encuentra en cache el set:%d\n",set);
+			// printf("		Write byte: Luego de traer de memoria encuentra en cache el set:%d\n",set);
 			*(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET)) = value;
 			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 1;
 			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
 			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
 			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
 		} else {
-			printf("ERROR: Reading block from main memory\n");
+			puts("ERROR: Reading block from main memory");
 			abort();
 		}
 	}
@@ -487,7 +513,6 @@ int write_byte(int address, char value){
 }
 
 int get_miss_rate(){
-	printf("%d - %d\n", CACHE->misses, CACHE->hits);
 	if ((CACHE->misses + CACHE->hits) == 0) return 0;
-	return CACHE->misses / ( CACHE->misses + CACHE->hits );
+	return (float) CACHE->misses / ( (float) CACHE->misses + (float) CACHE->hits ) * 100;
 }
