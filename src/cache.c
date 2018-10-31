@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
 
+#include "main_memory.h"
 #include "cache.h"
 
 #define WAYS 			4
@@ -34,20 +36,22 @@
 
 */
 
+main_memory_t* MAIN_MEMORY;
+
 /* -------------------- UTILITIES --------------------- */
 
-char* int_to_binary(int n){
+char* int_to_binary(int n, size_t bits){
 	int c, d, count;
 	char *pointer;
 
 	count = 0;
-	pointer = (char*)malloc(BITS_ADDRESS + 1);
+	pointer = (char*)malloc(bits + 1);
 	if (!pointer){
 		printf("ERROR: Can't Initialize blocks from cache\n");
 		abort();
 	}
 
-	for (c = BITS_ADDRESS - 1; c >= 0; c--){
+	for (c = bits - 1; c >= 0; c--){
 		d = n >> c;
 
 		if (d & 1)
@@ -224,7 +228,7 @@ void destroy(){
 /* ---------------------------------------------------- */
 
 int find_set(int address){
-	char* bin_address = int_to_binary(address);
+	char* bin_address = int_to_binary(address, BITS_ADDRESS);
 
 	char* tag = get_tag(bin_address);
 	char* index = get_index(bin_address);
@@ -287,14 +291,106 @@ int is_dirty(int way, int setnum){
 
 void read_block(int blocknum){
 
+    if(MAIN_MEMORY->blocks_amount < blocknum){
+		printf("ERROR: The Main Memory block especified doesn't exists\n");
+		return ;
+	}else if(!MAIN_MEMORY->blocks[blocknum-1]){
+		printf("ERROR: The Main Memory data especified isn't initialized\n");
+		return ;
+	}
+
+    // OBTENGO EL TAG E INDEX DEL BLOCKNUM. SON 10 BITS LOS QUE IDENTIFICA A UN BLOQUE DE LA MEMORIA PRINCIPAL
+	char* bin_blocknum = int_to_binary(blocknum, BITS_TAG + BITS_INDEX);
+    char* tag = get_tag(bin_blocknum);
+    char* index = get_index(bin_blocknum);
+
+    int memory_changed = 0;
+
+    // VER SI HAY ALGUN BLOQUE LIBRE EN CACHE
+    for (int i = 0; i < CACHE->amount_ways; ++i){
+        if (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 0){
+            printf("ENCUENTRA EN CACHE\n");
+            strcpy(MAIN_MEMORY->blocks[binary_to_int(bin_blocknum, BITS_TAG + BITS_INDEX)]->data, CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data);
+            CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 0; //Quedaria igual que en memoria principal
+            CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
+            CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
+            CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
+            CACHE->hits++;
+            memory_changed = 1;
+            break;
+        }
+    }
+
+
+    // SI NO SE ENCONTRO BLOQUE LIBRE HAY QUE AGARRAR EL BLOQUE LRU
+    if (memory_changed != 1) {
+        CACHE->misses++;
+
+        int way_lru = find_lru(binary_to_int(index, BITS_INDEX));
+        strcpy(MAIN_MEMORY->blocks[binary_to_int(bin_blocknum, BITS_TAG + BITS_INDEX)]->data, CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->data);
+        CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 0; //Quedaria igual que en memoria principal
+        CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
+        CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
+        CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
+
+    }
+
+
 }
 
 void write_block(int way, int setnum){
 
+    if(!CACHE){
+        printf("ERROR: The Cache isn't initialized\n");
+        return ;
+    }
+
+    if(CACHE->amount_ways < way){
+        printf("ERROR: The Cache Set especified don't exists\n");
+        return ;
+    }else if(!CACHE->ways[way-1]){
+        printf("ERROR: The Cache Set especified isn't initialized\n");
+        return ;
+    }
+
+    if(CACHE->ways[way-1]->blocks_amount < setnum){
+        printf("ERROR: The Block especified in the Cache Set don't exists\n");
+        return ;
+    }else if(!CACHE->ways[way-1]->blocks[setnum-1]){
+        printf("ERROR: This Block especified in the Cache Set isn't initialized\n");
+        return ;
+    }
+
+    // BUSQUEDA DEL BLOQUE EN CACHE
+    if (CACHE->ways[way-1]->blocks[setnum-1]->valid == 1){
+        printf("ENCUENTRA EN CACHE\n");
+        char* data = CACHE->ways[way-1]->blocks[setnum-1]->data;
+        CACHE->hits++;
+        int tag = CACHE->ways[way-1]->blocks[setnum-1]->tag;
+        char* bin_tag = int_to_binary(tag, BITS_TAG);
+        char* bin_index = int_to_binary(setnum, BITS_INDEX);
+
+        // Obtengo el numero de bloque de la memoria principal
+        char* bin_blocknum;
+        bin_blocknum = malloc(strlen(bin_tag)+strlen(bin_index)+1);
+        strcpy(bin_blocknum, bin_tag);
+        strcat(bin_blocknum, bin_index);
+
+        int blocknum = binary_to_int(bin_blocknum, BITS_TAG + BITS_INDEX);
+
+        // Guardo una copia de los datos en el bloque de la memoria principal
+        strcpy(MAIN_MEMORY->blocks[blocknum-1]->data, data);
+
+        free(bin_blocknum);
+    }
+    else{
+        printf("NO SE PUDO ENCONTRAR EL BLOQUE EN CACHE\n");
+        CACHE->misses++;
+    }
 }
 
 char read_byte(int address){
-	char* bin_address = int_to_binary(address);
+	char* bin_address = int_to_binary(address, BITS_ADDRESS);
 
 	char* tag = get_tag(bin_address);
 	char* index = get_index(bin_address);
@@ -347,7 +443,7 @@ char read_byte(int address){
 }
 
 int write_byte(int address, char value){
-	char* bin_address = int_to_binary(address);
+	char* bin_address = int_to_binary(address, BITS_ADDRESS);
 
 	char* tag = get_tag(bin_address);
 	char* index = get_index(bin_address);
