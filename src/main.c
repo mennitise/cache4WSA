@@ -15,6 +15,7 @@
 const int MAX_LENGHT = 256;
 const int MAX_LENGHT_LINES = 256;
 const int MAX_ADDRESS = 64 * 1024;
+const int SIZE_OF_BYTE = 256;
 
 main_memory_t* MAIN_MEMORY;
 cache_t* CACHE;
@@ -22,6 +23,14 @@ cache_t* CACHE;
 bool validate_adress(int address){
 	if (address >= MAX_ADDRESS){
 		printf("ERROR: The specified address is very large. The address limit is: %d\n", MAX_ADDRESS);
+		return false;
+	}
+	return true;
+}
+
+bool validate_value(int value){
+	if (value >= SIZE_OF_BYTE){
+		printf("ERROR: The specified value is more bigger that a byte\n");
 		return false;
 	}
 	return true;
@@ -66,17 +75,17 @@ bool process(char* line){
     	case READ:
     		if (!validate_adress(register_1)) return false;
     		printf("reading %d\n", register_1);
-			read_byte(register_1);
+			printf("%d\n", read_byte(register_1));
     		break;
     	case WRITE:
     		if (!validate_adress(register_1))return false;
-    		if (!validate_adress(register_2))return false;
+    		if (!validate_value(register_2))return false;
     		printf("writing %d in %d\n", register_2, register_1);
-			write_byte(register_1, register_2);
+    		printf("%d\n", write_byte(register_1, register_2));
     		break;
     	case MISS_RATE:
     		printf("Calculating miss rate...\n");
-			printf("MISS RATE: %d\n", get_miss_rate());
+			printf("%d\n", get_miss_rate());
     		break;
     }
     return true;

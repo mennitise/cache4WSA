@@ -405,7 +405,7 @@ void write_block(int way, int setnum){
     }
 }
 
-char read_byte(int address){
+int read_byte(int address){
 	char* bin_address = int_to_binary(address, BITS_ADDRESS);
 
 	char* tag = get_tag(bin_address);
@@ -451,7 +451,7 @@ char read_byte(int address){
 	free(offset);
 
 	free(bin_address);
-	return value;
+	return (int) value;
 }
 
 int write_byte(int address, char value){
@@ -467,6 +467,8 @@ int write_byte(int address, char value){
 
 	// printf("	Address:%s\n 	Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
 
+	char return_value;
+
 	// Simulamos tiempo de busqueda en cache
 	sleep(1);
 
@@ -477,6 +479,7 @@ int write_byte(int address, char value){
 		CACHE->hits++;
 
 		*(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET)) = value;
+		return_value = *(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
 		CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 1;
 		CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
 		CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
@@ -494,6 +497,7 @@ int write_byte(int address, char value){
 		if (set != -1){
 			// printf("		Write byte: Luego de traer de memoria encuentra en cache el set:%d\n",set);
 			*(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET)) = value;
+			return_value = *(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
 			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 1;
 			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
 			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
@@ -509,7 +513,7 @@ int write_byte(int address, char value){
 	free(offset);
 
 	free(bin_address);
-	return 0;
+	return (int) return_value;
 }
 
 int get_miss_rate(){
