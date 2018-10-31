@@ -306,16 +306,19 @@ void read_block(int blocknum){
 
     int memory_changed = 0;
 
+    //LEO LOS DATOS DE MEMORIA PRINCIPAL
+    char* data_in_memory = malloc(BLOCK_SIZE * sizeof(char*));
+    strcpy(data_in_memory, MAIN_MEMORY->blocks[binary_to_int(bin_blocknum, BITS_TAG + BITS_INDEX)]->data);
+
     // VER SI HAY ALGUN BLOQUE LIBRE EN CACHE
     for (int i = 0; i < CACHE->amount_ways; ++i){
         if (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 0){
             printf("ENCUENTRA EN CACHE\n");
-            strcpy(MAIN_MEMORY->blocks[binary_to_int(bin_blocknum, BITS_TAG + BITS_INDEX)]->data, CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data);
+            strcpy(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data, data_in_memory);
             CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 0; //Quedaria igual que en memoria principal
             CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
             CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
             CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
-            CACHE->hits++;
             memory_changed = 1;
             break;
         }
@@ -324,10 +327,12 @@ void read_block(int blocknum){
 
     // SI NO SE ENCONTRO BLOQUE LIBRE HAY QUE AGARRAR EL BLOQUE LRU
     if (memory_changed != 1) {
-        CACHE->misses++;
-
         int way_lru = find_lru(binary_to_int(index, BITS_INDEX));
-        strcpy(MAIN_MEMORY->blocks[binary_to_int(bin_blocknum, BITS_TAG + BITS_INDEX)]->data, CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->data);
+        // ME FIJO SI EL BIT DIRTY ESTA EN 1 PARA GUARDAR LO QUE TIENE EN MEMORIA
+        if (CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->dirty == 1){
+            strcpy(MAIN_MEMORY->blocks[binary_to_int(bin_blocknum, BITS_TAG + BITS_INDEX)]->data, CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->data);
+        }
+        strcpy(CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->data, data_in_memory);
         CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 0; //Quedaria igual que en memoria principal
         CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
         CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
@@ -365,7 +370,6 @@ void write_block(int way, int setnum){
     if (CACHE->ways[way-1]->blocks[setnum-1]->valid == 1){
         printf("ENCUENTRA EN CACHE\n");
         char* data = CACHE->ways[way-1]->blocks[setnum-1]->data;
-        CACHE->hits++;
         int tag = CACHE->ways[way-1]->blocks[setnum-1]->tag;
         char* bin_tag = int_to_binary(tag, BITS_TAG);
         char* bin_index = int_to_binary(setnum, BITS_INDEX);
@@ -385,7 +389,6 @@ void write_block(int way, int setnum){
     }
     else{
         printf("NO SE PUDO ENCONTRAR EL BLOQUE EN CACHE\n");
-        CACHE->misses++;
     }
 }
 
