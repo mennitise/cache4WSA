@@ -36,8 +36,6 @@
 
 */
 
-main_memory_t* MAIN_MEMORY;
-
 /* -------------------- UTILITIES --------------------- */
 
 char* int_to_binary(int n, size_t bits){
