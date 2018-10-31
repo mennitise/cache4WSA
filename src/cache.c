@@ -179,8 +179,8 @@ typedef struct cache{
 	int size;
 	cache_set_t* ways[WAYS];
 	size_t amount_ways;
-	size_t misses;
-	size_t hits;
+	int misses;
+	int hits;
 	
 }cache_t;
 
@@ -222,19 +222,28 @@ int find_set(int address){
 	char* index = get_index(bin_address);
 	char* offset = get_offset(bin_address);
 
+	int founded = -1;
+
 	if (!tag || !index || !offset){
 		printf("ERROR: Don't have space for initialize variables\n");
 		abort();
 	}
 
-	printf("Address:%s\n Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
+	for (int i = 0; i < CACHE->amount_ways; ++i){
+		if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
+			 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
+		){
+			founded = i;
+			break;
+		}
+	}
 
 	free(tag);
 	free(index);
 	free(offset);
 
 	free(bin_address);
-	return 0;
+	return founded;
 }
 
 int find_lru(int setnum){
@@ -245,7 +254,7 @@ int find_lru(int setnum){
 
 	int way_lru_block = 0;
 	for (int i = 0; i < CACHE->amount_ways; ++i){
-		if (CACHE->ways[i]->blocks[setnum-1]->lastUpdate > CACHE->ways[way_lru_block]->blocks[setnum-1]->lastUpdate) {
+		if (CACHE->ways[i]->blocks[setnum]->lastUpdate > CACHE->ways[way_lru_block]->blocks[setnum]->lastUpdate) {
 			way_lru_block = i;
 		}
 	}
@@ -312,7 +321,6 @@ void read_block(int blocknum){
         }
     }
 
-
     // SI NO SE ENCONTRO BLOQUE LIBRE HAY QUE AGARRAR EL BLOQUE LRU
     if (memory_changed != 1) {
         int way_lru = find_lru(binary_to_int(index, BITS_INDEX));
@@ -325,10 +333,7 @@ void read_block(int blocknum){
         CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
         CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
         CACHE->ways[way_lru]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
-
     }
-
-
 }
 
 void write_block(int way, int setnum){
@@ -395,35 +400,26 @@ char read_byte(int address){
 	printf("	Address:%s\n 	Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
 	
 	char value;
-	int founded = 0;
+	int set;
 
 	// BUSCA EL VALOR EN CACHE PARA RETORNARLO
-	for (int i = 0; i < CACHE->amount_ways; ++i){
-		if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
-			 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
-		){
-			printf("ENCUENTRA EN CACHE\n");
-			founded = 1;
-			value = *(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
-			CACHE->hits++;
-			break;
-		}
-	}
-
-	// SI NO LO ENCUENTRA TRAE DE MEMORIA AL CACHE
-	if (founded == 0){
+	set = find_set(address);
+	if (set != -1){
+		printf("Read byte: Encuentra el set en cache - %d\n",set);
+		CACHE->hits++;
+		value = *(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
+	} else {
+		printf("Read byte: No encuentra el set en cache\n");
 		CACHE->misses++;
 
 		// LEER DE MEMORIA EL BLOQUE
 		read_block(binary_to_int(bin_address, BITS_TAG + BITS_INDEX));
-		for (int i = 0; i < CACHE->amount_ways; ++i){
-			if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
-				 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
-			){
-				printf("LUEGO DE TRAER DE MEMORIA. ENCUENTRA EN CACHE\n");
-				value = *(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
-				break;
-			}
+		set = find_set(address);
+		if (set != 1){
+			value = *(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
+		} else {
+			printf("ERROR: Reading block from main memory\n");
+			abort();
 		}
 	}
 
@@ -437,12 +433,9 @@ char read_byte(int address){
 
 int write_byte(int address, char value){
 	char* bin_address = int_to_binary(address, BITS_ADDRESS);
-
 	char* tag = get_tag(bin_address);
 	char* index = get_index(bin_address);
 	char* offset = get_offset(bin_address);
-
-	int copied = 0;
 
 	if (!tag || !index || !offset){
 		printf("ERROR: Don't have space for initialize variables\n");
@@ -451,45 +444,37 @@ int write_byte(int address, char value){
 
 	printf("	Address:%s\n 	Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
 
-	// BUSCAR SI SE ENCUENTRA PARA REEMPLAZAR CON EL NUEVO VALOR Y PONER DIRTY EN 1
-	for (int i = 0; i < CACHE->amount_ways; ++i){
-		if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
-			 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
-		){
-			printf("ENCUENTRA EN CACHE, Y COPIA EL NUEVO VALOR\n");
-			*(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET)) = value;
-			CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 1;
-			CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
-			CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
-			CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
-			copied = 1;
-			value = *(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
-			CACHE->hits++;
-			break;
-		}
-	}
+	// BUSCAR SI EL BLOQUE SE ENCUENTRA EN CACHE PARA ESCRIBIR EL NUEVO VALOR
+	int set = find_set(address);
+	if (set != -1){
+		printf("Write byte: Encuentra en cache el set: %d\n",set);
+		CACHE->hits++;
 
-	// SI NO SE ENCUENTRA, LO TRAE DE MEMORIA, GUARDA EL VALOR Y PONE DIRTY EN 1
-	if (copied != 1) {
+		*(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET)) = value;
+		CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 1;
+		CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
+		CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
+		CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
+	} else {
+		// NO SE ENCUENTRA EL BLOQUE EN CACHE, LO TRAE DE MEMORIA
+		printf("Write byte: No encuentra en cache el set. Trae de memoria el set.\n");
 		CACHE->misses++;
 		
 		// LEER DE MEMORIA EL BLOQUE
+		read_block(binary_to_int(bin_address, BITS_TAG + BITS_INDEX));
 		
-		for (int i = 0; i < CACHE->amount_ways; ++i){
-			if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
-				 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
-			){
-				printf("LUEGO DE TRAER DE MEMORIA. ENCUENTRA EN CACHE, Y COPIA EL NUEVO VALOR\n");
-				*(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET)) = value;
-				CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 1;
-				CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
-				CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
-				CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
-				copied = 1;
-				value = *(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
-				CACHE->hits++;
-				break;
-			}
+		// Una vez que lo trae lo vuelve a buscar
+		set = find_set(address);
+		if (set != -1){
+			printf("Write byte: Luego de traer de memoria encuentra en cache el set:%d\n",set);
+			*(CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET)) = value;
+			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 1;
+			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
+			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->lastUpdate = time(NULL);
+			CACHE->ways[set]->blocks[binary_to_int(index, BITS_INDEX)]->tag = binary_to_int(tag, BITS_TAG);
+		} else {
+			printf("ERROR: Reading block from main memory\n");
+			abort();
 		}
 	}
 
@@ -502,6 +487,7 @@ int write_byte(int address, char value){
 }
 
 int get_miss_rate(){
+	printf("%d - %d\n", CACHE->misses, CACHE->hits);
 	if ((CACHE->misses + CACHE->hits) == 0) return 0;
 	return CACHE->misses / ( CACHE->misses + CACHE->hits );
 }
