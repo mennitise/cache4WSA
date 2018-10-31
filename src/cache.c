@@ -76,37 +76,27 @@ int binary_to_int(char* bin, size_t bits){
 	return result;
 }
 
-char* get_tag(char* address){
-	char* tag = (char*)malloc(BITS_TAG + 1);
-	if (!tag) return NULL;
+char* get_from_address(char* address, int len, int begin, int end){
+	char* aux = (char*)malloc(len + 1);
+	if (!aux) return NULL;
 	int count = 0;
-	for (int i = BITS_TAG_INIT; i <= BITS_TAG_END; ++i){
-		*(tag + count) = address[i];
+	for (int i = begin; i <= end; ++i){
+		*(aux + count) = address[i];
 		count++;
 	}
-	return tag;
+	return aux;
+}
+
+char* get_tag(char* address){
+	return get_from_address(address, BITS_TAG, BITS_TAG_INIT, BITS_TAG_END);
 }
 
 char* get_index(char* address){
-	char* index = (char*)malloc(BITS_INDEX + 1);
-	if (!index) return NULL;
-	int count = 0;
-	for (int i = BITS_INDEX_INIT; i <= BITS_INDEX_END; ++i){
-		*(index + count) = address[i];
-		count++;
-	}
-	return index;
+	return get_from_address(address, BITS_INDEX, BITS_INDEX_INIT, BITS_INDEX_END);
 }
 
 char* get_offset(char* address){
-	char* offset = (char*)malloc(BITS_OFFSET + 1);
-	if (!offset) return NULL;
-	int count = 0;
-	for (int i = BITS_OFFSET_INIT; i <= BITS_OFFSET_END; ++i){
-		*(offset + count) = address[i];
-		count++;
-	}
-	return offset;
+	return get_from_address(address, BITS_OFFSET, BITS_OFFSET_INIT, BITS_OFFSET_END);
 }
 
 /* -----------------BLOCK DEFINITION------------------- */
@@ -311,7 +301,7 @@ void read_block(int blocknum){
     // VER SI HAY ALGUN BLOQUE LIBRE EN CACHE
     for (int i = 0; i < CACHE->amount_ways; ++i){
         if (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 0){
-            printf("ENCUENTRA EN CACHE\n");
+            printf("ENCUENTRA BLOQUE LIBRE EN CACHE (read_block)\n");
             strcpy(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data, data_in_memory);
             CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->dirty = 0; //Quedaria igual que en memoria principal
             CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid = 1;
@@ -405,6 +395,7 @@ char read_byte(int address){
 	printf("	Address:%s\n 	Tag:%d Index:%d Offset:%d\n", bin_address, binary_to_int(tag, BITS_TAG), binary_to_int(index, BITS_INDEX), binary_to_int(offset, BITS_OFFSET));
 	
 	char value;
+	int founded = 0;
 
 	// BUSCA EL VALOR EN CACHE PARA RETORNARLO
 	for (int i = 0; i < CACHE->amount_ways; ++i){
@@ -412,6 +403,7 @@ char read_byte(int address){
 			 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
 		){
 			printf("ENCUENTRA EN CACHE\n");
+			founded = 1;
 			value = *(CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->data + binary_to_int(offset, BITS_OFFSET));
 			CACHE->hits++;
 			break;
@@ -419,11 +411,11 @@ char read_byte(int address){
 	}
 
 	// SI NO LO ENCUENTRA TRAE DE MEMORIA AL CACHE
-	if (!value){
+	if (founded == 0){
 		CACHE->misses++;
 
 		// LEER DE MEMORIA EL BLOQUE
-
+		read_block(binary_to_int(bin_address, BITS_TAG + BITS_INDEX));
 		for (int i = 0; i < CACHE->amount_ways; ++i){
 			if ( (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->valid == 1) &&
 				 (CACHE->ways[i]->blocks[binary_to_int(index, BITS_INDEX)]->tag == binary_to_int(tag, BITS_TAG)) 
