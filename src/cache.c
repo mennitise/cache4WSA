@@ -186,7 +186,7 @@ typedef struct cache{
 }cache_t;
 
 void init(){
-	puts("Initialize Cache...");
+	// puts("Initialize Cache...");
 	
 	CACHE = malloc(sizeof(cache_t));
 	if (!CACHE){
@@ -211,7 +211,7 @@ void destroy(){
 		}
 	}
 	free(CACHE);
-	puts("Cache destroyed!");
+	// puts("Cache destroyed!");
 }
 
 /* ---------------------------------------------------- */

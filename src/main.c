@@ -75,7 +75,7 @@ bool process(char* line){
     switch(operation){
     	case READ:
     		if (!validate_adress(register_1)) return false;
-    		printf("reading %d\n", register_1);
+    		//printf("reading %d\n", register_1);
     		result = read_byte(register_1);
 			printf("%d\n", result >= 0 ? result:result+SIZE_OF_BYTE);
     		break;
@@ -83,12 +83,12 @@ bool process(char* line){
     		if (!validate_adress(register_1))return false;
     		if (!validate_value(register_2))return false;
     		result = write_byte(register_1, register_2);
-    		printf("writing %d in %d\n", register_2, register_1);
-    		printf("	%d\n", result >= 0 ? result:result+SIZE_OF_BYTE);
+    		//printf("writing %d in %d\n", register_2, register_1);
+    		printf("%d\n", result >= 0 ? result:result+SIZE_OF_BYTE);
     		break;
     	case MISS_RATE:
-    		printf("Calculating miss rate...\n");
-			printf("	%d\n", get_miss_rate());
+    		//printf("Calculating miss rate...\n");
+			printf("%d\n", get_miss_rate());
     		break;
     }
     return true;

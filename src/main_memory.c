@@ -33,7 +33,7 @@ void destroy_main_memory_block(main_memory_block_t* block){
 /* ---------------- MAIN MEMORY DEFINITION ------------------ */
 
 void init_main_memory(){
-    printf("Initialize Main Memory...\n");
+    // printf("Initialize Main Memory...\n");
 
     MAIN_MEMORY = malloc(sizeof(main_memory_t));
     if (!MAIN_MEMORY){
@@ -56,7 +56,7 @@ void destroy_main_memory(){
         }
     }
     free(MAIN_MEMORY);
-    puts("Main Memory destroyed!");
+    // puts("Main Memory destroyed!");
 }
 
 /* ---------------------------------------------------- */
